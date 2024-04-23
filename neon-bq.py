@@ -5,9 +5,36 @@ import hashlib
 from datetime import datetime
 
 
-def get_data_from_queryfile(path, force_refresh = False):
+class NeonBQConnectorBuilder():
+    def __init__(self):
+        self.is_cache_enabled = True
+        self.cache_path = './query_cache/'
+        self.cache_res = 'day'
+        self.cache_format = 'parquet'
+        self.auth_method = 'gcloud'
+        self.auth_sa_path = None
+
+    def enable_cache(self):
+        self.is_cache_enabled = True
+        if self.cache_path is None:
+            self.cache_path = "./query_cache/"
+        return self
+
+    def disable_cache(self):
+        self.is_cache_enabled = False
+        self.cache_path = None
+        return self
+
+    def set_cache_path(self, cache_path):
+        if not cache_path[:2] != './' and not cache_path[0] != '/':
+            cache_path = './' + cache_path
+        self.cache_path = cache_path
+        return self
+
+
+def get_data_from_queryfile(path, force_refresh=False):
     query = ""
-    
+
     if not os.path.exists(path):
         raise RuntimeError("La path specificata non esiste")
 
@@ -20,7 +47,7 @@ def get_data_from_queryfile(path, force_refresh = False):
     return get_data(query, force_refresh)
 
 
-def get_data(query, force_refresh = False):
+def get_data(query, force_refresh=False):
     if query is None or query == "":
         raise RuntimeError("La query passata come input è vuota!")
 
@@ -37,16 +64,16 @@ def get_data(query, force_refresh = False):
         if force_refresh or os.stat(file_name).st_size == 0:
             os.path.remove(file_name)
         else:
-            data = pd.read_parquet(path = file_name)
+            data = pd.read_parquet(path=file_name)
             if data.empty:
                 os.path.remove(file_name)
                 data = None
-    
+
     if data is None:
         bqclient = bigquery.Client()
-        
+
         dryrun_config = bigquery.QueryJobConfig(
-            dry_run=True, use_query_cache=False    
+            dry_run=True, use_query_cache=False
         )
 
         dryrun_job = bqclient.query(
@@ -68,6 +95,6 @@ def get_data(query, force_refresh = False):
 
         query_job = bqclient.query(query)
         data = query_job.result().to_dataframe()
-        data.to_parquet(path = file_name, compression = "gzip", index=False)
+        data.to_parquet(path=file_name, compression="gzip", index=False)
 
     return data
