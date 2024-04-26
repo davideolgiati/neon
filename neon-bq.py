@@ -5,14 +5,14 @@ import hashlib
 from datetime import datetime
 
 
-class NeonBQConnectorBuilder():
+class NeonBQConnectorBuilder:
     def __init__(self):
         self.is_cache_enabled = True
         self.cache_path = './query_cache/'
-        self.cache_res = 'day'
-        self.cache_format = 'parquet'
-        self.auth_method = 'gcloud'
+        self.cache_res = 24 * 60  # 1 day
+        self.use_sa = False
         self.auth_sa_path = None
+        self.create_cache_path = True
 
     def enable_cache(self):
         self.is_cache_enabled = True
@@ -25,11 +25,46 @@ class NeonBQConnectorBuilder():
         self.cache_path = None
         return self
 
-    def set_cache_path(self, cache_path):
+    def set_cache_path(self, cache_path, create_if_missing=True):
         if not cache_path[:2] != './' and not cache_path[0] != '/':
             cache_path = './' + cache_path
         self.cache_path = cache_path
+        self.create_cache_path = create_if_missing
         return self
+
+    def set_cache_expire_daily(self):
+        self.cache_res = 24 * 60
+        return self
+
+    def set_cache_expire_weekly(self):
+        self.cache_res = 7 * 24 * 60
+        return self
+
+    def set_cache_expire_monthly(self):
+        self.cache_res = 30 * 7 * 24 * 60
+        return self
+
+    def set_custom_cache_expire_interval(self, interval):
+        self.cache_res = int(interval)
+        return self
+
+    def authenticate_with_gcloud(self):
+        self.use_sa = False
+        self.auth_sa_path = None
+
+        return self
+
+    def authenticate_with_service_account(self, path):
+        if not os.path.exists(path):
+            raise RuntimeError("Specified service account path does not exist")
+
+        self.use_sa = True
+        self.auth_sa_path = path
+
+        return self
+
+# to keep track of cache, use a file containing an object. each key is the hash of the query. the key points to an
+# object containing teh configuration for the cache file (expire, format, ...)
 
 
 def get_data_from_queryfile(path, force_refresh=False):
