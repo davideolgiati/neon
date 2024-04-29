@@ -46,6 +46,8 @@ class NeonBQConnectorBuilder:
 
     def set_custom_cache_expire_interval(self, interval):
         self.cache_res = int(interval)
+        if self.cache_res < 1:
+            return self.disable_cache()
         return self
 
     def authenticate_with_gcloud(self):
@@ -62,6 +64,31 @@ class NeonBQConnectorBuilder:
         self.auth_sa_path = path
 
         return self
+
+
+class NeonBQConnector:
+    def __init__(self, enable_cache, cache_path, cache_update, create_cache_path, sa_path):
+        if enable_cache:
+            self.cache_path = cache_path
+            if create_cache_path:
+                os.mkdir(self.cache_path)
+            self.cache_update = cache_update
+
+        if sa_path is not None and os.path.isfile(sa_path):
+            self.client = bigquery.Client.from_service_account_json(sa_path)
+        else:
+            self.client = bigquery.Client()
+
+    def validate_query(self, query):
+        dryrun_config = bigquery.QueryJobConfig(
+            dry_run=True, use_query_cache=False
+        )
+
+        dryrun_job = self.client.query(
+            query, dryrun_config
+        )
+
+        #TODO: finire questo metodo
 
 # to keep track of cache, use a file containing an object. each key is the hash of the query. the key points to an
 # object containing teh configuration for the cache file (expire, format, ...)
