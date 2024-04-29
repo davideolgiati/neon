@@ -90,6 +90,20 @@ class NeonBQConnector:
 
         #TODO: finire questo metodo
 
+    def validate_query_from_file(self, query_path):
+        query = ""
+
+        if not os.path.exists(query_path):
+            raise RuntimeError("La path specificata non esiste")
+
+        if os.stat(query_path).st_size == 0:
+            raise RuntimeError("Il file specificato è vuoto")
+
+        with open(query_path, 'r') as fp:
+            query = fp.read()
+
+        return self.validate_query(query)
+
 # to keep track of cache, use a file containing an object. each key is the hash of the query. the key points to an
 # object containing teh configuration for the cache file (expire, format, ...)
 
