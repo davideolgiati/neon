@@ -1,4 +1,8 @@
+import json
 import os
+import sys
+
+from google.api_core.exceptions import BadRequest
 from google.cloud import bigquery
 import pandas as pd
 import hashlib
@@ -79,16 +83,21 @@ class NeonBQConnector:
         else:
             self.client = bigquery.Client()
 
-    def validate_query(self, query):
-        dryrun_config = bigquery.QueryJobConfig(
+        self.dryrun_config = bigquery.QueryJobConfig(
             dry_run=True, use_query_cache=False
         )
 
-        dryrun_job = self.client.query(
-            query, dryrun_config
-        )
-
-        #TODO: finire questo metodo
+    def validate_query(self, query):
+        try:
+            dryrun_job = self.client.query(
+                query, self.dryrun_config
+            )
+        except BadRequest as e:
+            data = json.loads(e.response.text)
+            print(f"Error while parsing query: {data["error"]["message"]}")
+            return -1
+        else:
+            return dryrun_job.total_bytes_processed
 
     def validate_query_from_file(self, query_path):
         query = ""
