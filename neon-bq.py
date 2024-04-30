@@ -86,6 +86,8 @@ class NeonBQConnector:
             dry_run=True, use_query_cache=False
         )
 
+        self.dry_run = False
+
     def validate_query(self, query):
         retry = 0
         while retry < 3:
@@ -102,22 +104,12 @@ class NeonBQConnector:
                     return -1
 
     def validate_query_from_file(self, query_path):
-        query = ""
-
-        if not os.path.exists(query_path):
-            raise RuntimeError("La path specificata non esiste")
-
-        if os.stat(query_path).st_size == 0:
-            raise RuntimeError("Il file specificato è vuoto")
-
-        with open(query_path, 'r') as fp:
-            query = fp.read()
-
-        return self.validate_query(query)
+        self.dry_run = True
+        return self.run_from_file(query_path)
 
     def run(self, query):
         if query is None or query == "":
-            raise RuntimeError("La query passata come input è vuota!")
+            raise RuntimeError("Input query is empty!")
 
         #TODO: change the following 3 lines
         base_name = hashlib.sha256(query.encode('utf-8')).hexdigest()
@@ -144,8 +136,8 @@ class NeonBQConnector:
             #TODO: add option to run without asking
             byte_to_bill = byte_to_bill / (1024 * 1024 * 1024)
 
-            print(f"Questa query processerà {byte_to_bill:.2f}GB ({(byte_to_bill / 1024) * 6.25:.2f}$).")
-            print("Procedere? [Y/n]")
+            print(f"This query will read {byte_to_bill:.2f}GB ({(byte_to_bill / 1024) * 6.25:.2f}$).")
+            print("Run the query? [Y/n]")
 
             ans = None
             while ans not in ["Y", "N"]:
@@ -153,7 +145,7 @@ class NeonBQConnector:
                 ans = ans.strip().upper()[0]
 
             if ans == "N":
-                raise RuntimeError("Interrotto dall'utente")
+                raise RuntimeError("Aborted by user.")
 
             query_job = self.client.query(query)
             data = query_job.result().to_dataframe()
@@ -165,15 +157,19 @@ class NeonBQConnector:
         query = ""
 
         if not os.path.exists(path):
-            raise RuntimeError("La path specificata non esiste")
+            raise RuntimeError("Specified path does not exist!")
 
         if os.stat(path).st_size == 0:
-            raise RuntimeError("Il file specificato è vuoto")
+            raise RuntimeError("Specified file is empty!")
 
         with open(path, 'r') as fp:
             query = fp.read()
 
-        return self.run(query)
+        if self.dry_run:
+            self.dry_run = False
+            return self.validate_query(query)
+        else:
+            return self.run(query)
 
 # to keep track of cache, use a file containing an object. each key is the hash of the query. the key points to an
 # object containing teh configuration for the cache file (expire, format, ...)
